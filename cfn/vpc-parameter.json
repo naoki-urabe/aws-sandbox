@@ -1,0 +1,10 @@
+[
+    {
+        "ParameterKey": "EnvironmentName",
+        "ParameterValue": "eks-sandbox-vpc"
+    },
+    {
+        "ParameterKey": "VpcCIDR",
+        "ParameterValue": "10.192.0.0/16"
+    }
+]
