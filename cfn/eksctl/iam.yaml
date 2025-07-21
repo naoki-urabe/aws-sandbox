@@ -1,0 +1,311 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: IAM Role for Lambda to access EKS
+
+Resources:
+  LambdaEksAccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: lambda-eks-access-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: LambdaEKSAccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # - Effect: Allow
+              #   Action:
+              #     - sts:GetCallerIdentity
+              #   Resource: "*"
+              - Effect: Allow
+                Action:
+                  - sts:AssumeRole
+                Resource: arn:aws:iam::335816118727:role/eks-operation-role
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "arn:aws:logs:*:*:*"
+  EKSOperationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: eks-operation-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS:
+                - !GetAtt LambdaEksAccessRole.Arn
+                # for test
+                - arn:aws:iam::335816118727:user/admin
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: EKSOperationPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - eks:DescribeCluster
+                Resource: arn:aws:eks:ap-northeast-1:335816118727:cluster/test-base
+              - Effect: Allow
+                Action:
+                  - sts:GetCallerIdentity
+                Resource: "*"
+  AWSLoadBalancerControllerIAMPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: AWSLoadBalancerControllerIAMPolicy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - iam:CreateServiceLinkedRole
+              - ec2:DescribeAccountAttributes
+              - ec2:DescribeAddresses
+              - ec2:DescribeInternetGateways
+              - ec2:DescribeVpcs
+              - ec2:DescribeSubnets
+              - ec2:DescribeSecurityGroups
+              - ec2:DescribeInstances
+              - ec2:DescribeNetworkInterfaces
+              - ec2:DescribeTags
+              - ec2:GetCoipPoolUsage
+              - ec2:DescribeCoipPools
+              - ec2:DescribeAvailabilityZones
+              - elasticloadbalancing:DescribeLoadBalancers
+              - elasticloadbalancing:DescribeLoadBalancerAttributes
+              - elasticloadbalancing:DescribeListeners
+              - elasticloadbalancing:DescribeListenerCertificates
+              - elasticloadbalancing:DescribeSSLPolicies
+              - elasticloadbalancing:DescribeRules
+              - elasticloadbalancing:DescribeTargetGroups
+              - elasticloadbalancing:DescribeTargetGroupAttributes
+              - elasticloadbalancing:DescribeTargetHealth
+              - elasticloadbalancing:DescribeTags
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - cognito-idp:DescribeUserPoolClient
+              - acm:ListCertificates
+              - acm:DescribeCertificate
+              - iam:ListServerCertificates
+              - iam:GetServerCertificate
+              - waf-regional:GetWebACL
+              - waf-regional:GetWebACLForResource
+              - waf-regional:AssociateWebACL
+              - waf-regional:DisassociateWebACL
+              - wafv2:GetWebACL
+              - wafv2:GetWebACLForResource
+              - wafv2:AssociateWebACL
+              - wafv2:DisassociateWebACL
+              - shield:GetSubscriptionState
+              - shield:DescribeProtection
+              - shield:CreateProtection
+              - shield:DeleteProtection
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - ec2:AuthorizeSecurityGroupIngress
+              - ec2:RevokeSecurityGroupIngress
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - ec2:CreateSecurityGroup
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - ec2:CreateTags
+            Resource: arn:aws:ec2:*:*:security-group/*
+            Condition:
+              StringEquals:
+                ec2:CreateAction: CreateSecurityGroup
+              "Null":
+                aws:RequestTag/elbv2.k8s.aws/cluster: "false"
+          - Effect: Allow
+            Action:
+              - ec2:CreateTags
+              - ec2:DeleteTags
+            Resource: arn:aws:ec2:*:*:security-group/*
+            Condition:
+              "Null":
+                aws:RequestTag/elbv2.k8s.aws/cluster: "true"
+                aws:ResourceTag/elbv2.k8s.aws/cluster: "false"
+          - Effect: Allow
+            Action:
+              - ec2:AuthorizeSecurityGroupIngress
+              - ec2:RevokeSecurityGroupIngress
+              - ec2:DeleteSecurityGroup
+            Resource: "*"
+            Condition:
+              "Null":
+                aws:ResourceTag/elbv2.k8s.aws/cluster: "false"
+          - Effect: Allow
+            Action:
+              - elasticloadbalancing:CreateLoadBalancer
+              - elasticloadbalancing:CreateTargetGroup
+            Resource: "*"
+            Condition:
+              "Null":
+                aws:RequestTag/elbv2.k8s.aws/cluster: "false"
+          - Effect: Allow
+            Action:
+              - elasticloadbalancing:CreateListener
+              - elasticloadbalancing:DeleteListener
+              - elasticloadbalancing:CreateRule
+              - elasticloadbalancing:DeleteRule
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - elasticloadbalancing:AddTags
+              - elasticloadbalancing:RemoveTags
+            Resource:
+              - arn:aws:elasticloadbalancing:*:*:targetgroup/*/*
+              - arn:aws:elasticloadbalancing:*:*:loadbalancer/net/*/*
+              - arn:aws:elasticloadbalancing:*:*:loadbalancer/app/*/*
+            Condition:
+              "Null":
+                aws:RequestTag/elbv2.k8s.aws/cluster: "true"
+                aws:ResourceTag/elbv2.k8s.aws/cluster: "false"
+          - Effect: Allow
+            Action:
+              - elasticloadbalancing:ModifyLoadBalancerAttributes
+              - elasticloadbalancing:SetIpAddressType
+              - elasticloadbalancing:SetSecurityGroups
+              - elasticloadbalancing:SetSubnets
+              - elasticloadbalancing:DeleteLoadBalancer
+              - elasticloadbalancing:ModifyTargetGroup
+              - elasticloadbalancing:ModifyTargetGroupAttributes
+              - elasticloadbalancing:DeleteTargetGroup
+            Resource: "*"
+            Condition:
+              "Null":
+                aws:ResourceTag/elbv2.k8s.aws/cluster: "false"
+          - Effect: Allow
+            Action:
+              - elasticloadbalancing:RegisterTargets
+              - elasticloadbalancing:DeregisterTargets
+            Resource: arn:aws:elasticloadbalancing:*:*:targetgroup/*/*
+          - Effect: Allow
+            Action:
+              - elasticloadbalancing:SetWebAcl
+              - elasticloadbalancing:ModifyListener
+              - elasticloadbalancing:AddListenerCertificates
+              - elasticloadbalancing:RemoveListenerCertificates
+              - elasticloadbalancing:ModifyRule
+            Resource: "*"
+  # ALBControllerRole:
+  #   Type: AWS::IAM::Role
+  #   Properties:
+  #     RoleName: !Sub "AmazonEKSLoadBalancerControllerRole"
+  #     AssumeRolePolicyDocument:
+  #       Version: '2012-10-17'
+  #       Statement:
+  #         - Effect: Allow
+  #           Principal:
+  #             Federated: arn:aws:iam::335816118727:oidc-provider/oidc.eks.ap-northeast-1.amazonaws.com/id/C755092F9D58D802C610807309CFFC18
+  #           Action: sts:AssumeRoleWithWebIdentity
+  #           Condition:
+  #             StringEquals:
+  #               oidc.eks.ap-northeast-1.amazonaws.com/id/C755092F9D58D802C610807309CFFC18:sub: "system:serviceaccount:kube-system:aws-load-balancer-controller"
+  #     ManagedPolicyArns:
+  #       - !Ref LoadBalancerControllerPolicy
+  # LoadBalancerControllerPolicy:
+  #   Type: AWS::IAM::ManagedPolicy
+  #   Properties:
+  #     ManagedPolicyName: AWSLoadBalancerControllerIAMPolicy
+  #     Description: Policy required for AWS Load Balancer Controller
+  #     PolicyDocument:
+  #       Version: "2012-10-17"
+  #       Statement:
+  #         - Effect: Allow
+  #           Action:
+  #             - elasticloadbalancing:DescribeLoadBalancers
+  #             - elasticloadbalancing:DescribeLoadBalancerAttributes
+  #             - elasticloadbalancing:DescribeListeners
+  #             - elasticloadbalancing:DescribeListenerCertificates
+  #             - elasticloadbalancing:DescribeSSLPolicies
+  #             - elasticloadbalancing:DescribeRules
+  #             - elasticloadbalancing:DescribeTargetGroups
+  #             - elasticloadbalancing:DescribeTargetGroupAttributes
+  #             - elasticloadbalancing:DescribeTargetHealth
+  #             - elasticloadbalancing:DescribeTags
+  #             - elasticloadbalancing:AddTags
+  #             - elasticloadbalancing:RemoveTags
+  #             - elasticloadbalancing:CreateListener
+  #             - elasticloadbalancing:CreateLoadBalancer
+  #             - elasticloadbalancing:CreateRule
+  #             - elasticloadbalancing:CreateTargetGroup
+  #             - elasticloadbalancing:DeleteListener
+  #             - elasticloadbalancing:DeleteLoadBalancer
+  #             - elasticloadbalancing:DeleteRule
+  #             - elasticloadbalancing:DeleteTargetGroup
+  #             - elasticloadbalancing:ModifyListener
+  #             - elasticloadbalancing:ModifyLoadBalancerAttributes
+  #             - elasticloadbalancing:ModifyRule
+  #             - elasticloadbalancing:ModifyTargetGroup
+  #             - elasticloadbalancing:ModifyTargetGroupAttributes
+  #             - elasticloadbalancing:RegisterTargets
+  #             - elasticloadbalancing:DeregisterTargets
+  #             - elasticloadbalancing:SetIpAddressType
+  #             - elasticloadbalancing:SetSecurityGroups
+  #             - elasticloadbalancing:SetSubnets
+  #             - elasticloadbalancing:SetWebAcl
+  #             - elasticloadbalancing:ModifyLoadBalancerAttributes
+  #             - elasticloadbalancing:ModifyTargetGroup
+  #             - elasticloadbalancing:ModifyTargetGroupAttributes
+  #             - ec2:AuthorizeSecurityGroupIngress
+  #             - ec2:RevokeSecurityGroupIngress
+  #             - ec2:CreateSecurityGroup
+  #             - ec2:DeleteSecurityGroup
+  #             - ec2:DescribeAccountAttributes
+  #             - ec2:DescribeAddresses
+  #             - ec2:DescribeInstances
+  #             - ec2:DescribeInstanceStatus
+  #             - ec2:DescribeInternetGateways
+  #             - ec2:DescribeNetworkInterfaces
+  #             - ec2:DescribeSecurityGroups
+  #             - ec2:DescribeSubnets
+  #             - ec2:DescribeTags
+  #             - ec2:DescribeVpcs
+  #             - ec2:ModifyNetworkInterfaceAttribute
+  #             - ec2:CreateTags
+  #             - ec2:DeleteTags
+  #             - iam:CreateServiceLinkedRole
+  #             - iam:GetServerCertificate
+  #             - iam:ListServerCertificates
+  #             - acm:DescribeCertificate
+  #             - acm:ListCertificates
+  #             - acm:GetCertificate
+  #             - waf-regional:GetWebACL
+  #             - waf-regional:GetWebACLForResource
+  #             - waf-regional:AssociateWebACL
+  #             - waf-regional:DisassociateWebACL
+  #             - wafv2:GetWebACL
+  #             - wafv2:GetWebACLForResource
+  #             - wafv2:AssociateWebACL
+  #             - wafv2:DisassociateWebACL
+  #             - shield:DescribeProtection
+  #             - shield:GetSubscriptionState
+  #             - shield:DeleteProtection
+  #             - shield:CreateProtection
+  #             - shield:DescribeSubscription
+  #             - shield:ListProtections
+  #             - tag:GetResources
+  #             - tag:TagResources
+  #             - tag:UntagResources
+  #           Resource: "*"
+Outputs:
+  LambdaEKSAccessRoleArn:
+    Value: !GetAtt LambdaEksAccessRole.Arn
+    Export:
+      Name: LambdaEKSAccessRoleArn

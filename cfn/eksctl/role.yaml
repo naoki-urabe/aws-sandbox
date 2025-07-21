@@ -1,0 +1,26 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: lambda-access-role
+  namespace: default
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "patch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: lambda-access-binding
+  namespace: default
+subjects:
+  - kind: Group
+    name: lambda-group
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: lambda-access-role
+  apiGroup: rbac.authorization.k8s.io

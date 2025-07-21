@@ -1,0 +1,121 @@
+# echo-service-v1（Hello from v1）
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: echo-v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: echo-v1
+  template:
+    metadata:
+      labels:
+        app: echo-v1
+    spec:
+      containers:
+        - name: echo
+          image: hashicorp/http-echo
+          args:
+            - "-text=Hello from ingress v1"
+          ports:
+            - containerPort: 5678
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo-service-v1
+spec:
+  ports:
+    - port: 80
+      targetPort: 5678
+  selector:
+    app: echo-v1
+
+---
+
+# echo-service-v2（Hello from v2）
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: echo-v2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: echo-v2
+  template:
+    metadata:
+      labels:
+        app: echo-v2
+    spec:
+      containers:
+        - name: echo
+          image: hashicorp/http-echo
+          args:
+            - "-text=Hello from ingress v2"
+          ports:
+            - containerPort: 5678
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo-service-v2
+spec:
+  ports:
+    - port: 80
+      targetPort: 5678
+  selector:
+    app: echo-v2
+
+---
+
+# Ingress v1（order 1）
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-v1
+  annotations:
+    kubernetes.io/ingressClassName: alb
+    alb.ingress.kubernetes.io/group.name: "ingress-test"
+    alb.ingress.kubernetes.io/group.order: "3"
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          - path: /app1
+            pathType: Prefix
+            backend:
+              service:
+                name: echo-service-v1
+                port:
+                  number: 80
+
+---
+
+# Ingress v2（order 2）
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-v2
+  annotations:
+    kubernetes.io/ingressClassName: alb
+    alb.ingress.kubernetes.io/group.name: "ingress-test"
+    alb.ingress.kubernetes.io/group.order: "2"
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          - path: /app2
+            pathType: Prefix
+            backend:
+              service:
+                name: echo-service-v2
+                port:
+                  number: 80

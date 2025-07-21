@@ -1,0 +1,39 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: test-base
+  region: ap-northeast-1
+
+nodeGroups:
+  - name: ng-1
+    instanceType: t3.medium
+    desiredCapacity: 1
+    volumeSize: 80
+    ssh:
+      allow: false # will use ~/.ssh/id_rsa.pub as the default ssh key
+
+iam:
+  withOIDC: true
+  serviceAccounts:
+    - metadata:
+        name: aws-load-balancer-controller
+        namespace: kube-system
+      attachPolicyARNs:
+        - arn:aws:iam::335816118727:policy/AWSLoadBalancerControllerIAMPolicy
+      roleName: AmazonEKSLoadBalancerControllerRole
+      roleOnly: false
+
+addons:
+- name: aws-ebs-csi-driver
+- name: vpc-cni
+- name: coredns
+- name: kube-proxy
+
+accessConfig:
+  authenticationMode: API_AND_CONFIG_MAP
+  accessEntries:
+    - principalARN: arn:aws:iam::335816118727:role/eks-operation-role
+      type: STANDARD
+      kubernetesGroups:
+        - lambda-group
