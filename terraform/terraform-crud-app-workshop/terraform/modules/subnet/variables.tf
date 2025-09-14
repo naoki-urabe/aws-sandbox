@@ -1,12 +1,8 @@
-variable "cidr_block" {
-    default = "10.0.0.0/16"
-}
-
-variable "vpc_name" {
+variable "name" {
     type = string
 }
 
-variable "subnet_name" {
+variable "vpc_id" {
     type = string
 }
 
