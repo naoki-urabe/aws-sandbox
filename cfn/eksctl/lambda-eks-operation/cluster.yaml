@@ -14,7 +14,7 @@ nodeGroups:
       allow: false # will use ~/.ssh/id_rsa.pub as the default ssh key
 
 iam:
-  withOIDC: true
+  withOIDC: false
   serviceAccounts:
     - metadata:
         name: aws-load-balancer-controller

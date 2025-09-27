@@ -1,0 +1,4 @@
+{
+    "ParameterKey": "ClusterStack",
+    "ParameterValue": "eksctl-test-cluster"
+}
